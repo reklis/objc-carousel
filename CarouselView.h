@@ -14,6 +14,9 @@
 @interface CarouselView : UIView {
     @private
     CGFloat itemWidth;
+    CGFloat minX;
+    CGFloat maxX;
+    CGFloat viewportStride;
     
     NSInteger numberOfItems;
     NSInteger numberOfVisibleItems;

@@ -16,9 +16,9 @@
 - (NSInteger) leftOfIndex:(NSInteger)index step:(NSInteger)i;
 - (NSInteger) rightOfIndex:(NSInteger)index step:(NSInteger)i;
 
-- (void) beginDraggingAtPoint:(CGPoint)startPoint;
+- (void) beginDragging;
 - (void) moveItems:(CGFloat)distance;
-- (void) endDraggingAtPoint:(CGPoint)endPoint;
+- (void) endDragging;
 - (void) animateSnapToCenter:(CGFloat)distance;
 - (void) animateSnapBack:(CGFloat)distance;
 
@@ -43,6 +43,9 @@
 
 - (void) reloadItems
 {
+    maxX = CGRectGetMaxX(self.frame);
+    minX = CGRectGetMinX(self.frame);
+    
     numberOfItems = [delegate numberOfItemsInCarouselView:self];
     
     if (numberOfItems == 0) {
@@ -63,6 +66,8 @@
     // reset page state
     numberOfItemsOnEachSide = contentWidth / itemWidth / 2;
     currentItemIndex = 0;
+    
+    viewportStride = itemWidth * ((numberOfItemsOnEachSide * 2) - 1);
     
     [self showItemAtIndex:currentItemIndex];    
     
@@ -121,6 +126,8 @@
 
 - (void) loadViewForIndex:(NSInteger)index withOffsetX:(CGFloat)offsetX reusingView:(UIView*)culledView
 {
+    //NSLog(@"loadViewForIndex: %d withOffsetX: %1.2f reusingView: %@", index, offsetX, culledView);
+    
     UIView* v = [self.delegate carouselView:self viewForItemAtIndex:index reusingView:culledView];
     
     v.center = CGPointMake(offsetX, v.center.y);
@@ -155,7 +162,7 @@
 
 #pragma mark Dragging
 
-- (void) beginDraggingAtPoint:(CGPoint)startPoint
+- (void) beginDragging
 {
     isDragging = YES;
     dragDistance = 0.0;
@@ -163,56 +170,88 @@
 
 - (void) moveItems:(CGFloat)distance
 {
+    // TODO: scary... fix it
+    
     if (distance == 0) {
         return;
     }
-        
+    
     for (UIView* v in [self subviews]) {
         CGFloat x = v.center.x - distance;
         v.center = CGPointMake(x, v.center.y);
         
         if (isDragging) {
-            CGFloat maxX = CGRectGetMaxX(self.frame);
-            CGFloat minX = CGRectGetMinX(self.frame);
             
-            // use the distance sign bit to check direction of the move, preventing flickering of edge views
             if (distance < 0) {
+                // right culling
                 
                 if (x > maxX) {
-                    int leftIndex = [self leftOfIndex:currentItemIndex step:(-dragDistance / itemWidth) + numberOfItemsOnEachSide];
-                    CGFloat offsetX = x - (itemWidth * ((numberOfItemsOnEachSide * 2) - 1));
+                    CGFloat penetration = (x-maxX);
+                    CGFloat offsetX = x - viewportStride;
+                    int dragDelta = (-dragDistance / itemWidth);
+                    int stride = (viewportStride / itemWidth);
+                    int leg = (numberOfItemsOnEachSide-1);
+                    int stepping = dragDelta + stride - leg;
                     
-                    [self loadViewForIndex:leftIndex withOffsetX:offsetX reusingView:v];
-                }
+                    if (-distance >= itemWidth) {
+                        stepping -= ((int)penetration / (int)itemWidth);
+                    }
+                    
+                    // special case for "tugging" left first then right
+                    if (dragDistance > 0) {
+                        stepping -= 1;
+                    }
+                    
+                    int newIndex = [self leftOfIndex:currentItemIndex step:stepping];
+                    
+                    NSLog(@"RIGHT: dragDistance: %1.2f  penetration: %1.2f  offsetX: %1.2f  dragDelta: %d  stride: %d  leg: %d  stepping: %d", dragDistance, penetration, offsetX, dragDelta, stride, leg, stepping);
+                    [self loadViewForIndex:newIndex withOffsetX:offsetX reusingView:v];
+                } 
+                
             } else {
+                // left culling
+                
                 if (x < minX) {
-                    int rightIndex = [self rightOfIndex:currentItemIndex step:(dragDistance / itemWidth) + numberOfItemsOnEachSide];
-                    CGFloat offsetX = x + (itemWidth * ((numberOfItemsOnEachSide * 2) - 1));
-                    //int stepping = (offsetX - x) / itemWidth;
-                    //int rightIndex = [self rightOfIndex:currentItemIndex step:numberOfItemsOnEachSide];
-                    //currentItemIndex = [self rightOfIndex:currentItemIndex step:1];
+                    CGFloat penetration = (minX-x);
+                    CGFloat offsetX = x + viewportStride;
+                    int dragDelta = (dragDistance / itemWidth);
+                    int stride = (viewportStride / itemWidth);
+                    int leg = (numberOfItemsOnEachSide-1);
+                    int stepping = dragDelta + stride - leg;
                     
-                    [self loadViewForIndex:rightIndex withOffsetX:offsetX reusingView:v];
+                    if (distance >= itemWidth) {
+                        stepping -= ((int)penetration / (int)itemWidth);
+                    }
+                    
+                    // special case for "tugging" right first then left
+                    if (dragDistance < 0) {
+                        stepping -= 1;
+                    }
+                    
+                    int newIndex = [self rightOfIndex:currentItemIndex step:stepping];
+                    
+                    NSLog(@"LEFT: dragDistance: %1.2f  penetration: %1.2f  offsetX: %1.2f  dragDelta: %d  stride: %d  leg: %d  stepping: %d", dragDistance, penetration, offsetX, dragDelta, stride, leg, stepping);
+                    [self loadViewForIndex:newIndex withOffsetX:offsetX reusingView:v];
                 }
             }
+            
         }
     }
 }
 
-- (void) endDraggingAtPoint:(CGPoint)endPoint
+- (void) endDragging
 {
     CGFloat d = dragDistance;
+    
+    if (dragDistance == 0) {
+        return;
+    }
     
     isDragging = NO;
     
     CGFloat integral = CGFLOAT_MAX;
     CGFloat fractional = modff(d / itemWidth, &integral);
-    
-    if (integral == 0.0 && fractional == 0.0) {
-        // aligned, nothing to do
-        return;
-    }
-    
+        
     if (integral != 0.0) {
         
         // update the current item index appropriately
@@ -280,30 +319,32 @@
 {
     [self notifyDelegateCurrentItemChanged];
     
+    isAnimating = NO;
+    
+    
+    // We need to wait until spring animation is complete before readjusting the views,
+    // otherwise the views to fly across the screen during re-culling because their center property is adjusted
+    
+    // TODO: refactor this and movement view culling into single place
     
     for (UIView* v in [self subviews]) {
         CGFloat x = v.center.x;
-        
-        CGFloat maxX = CGRectGetMaxX(self.frame);
-        CGFloat minX = CGRectGetMinX(self.frame);
-        
+            
         if (x > maxX) {
-            int leftIndex = [self leftOfIndex:currentItemIndex step:numberOfItemsOnEachSide-1];
-            CGFloat offsetX = x - (itemWidth * ((numberOfItemsOnEachSide * 2) - 1));
+            CGFloat offsetX = x - viewportStride;
+            int leg = (numberOfItemsOnEachSide-1);
+            int newIndex = [self leftOfIndex:currentItemIndex step:leg];
             
-            [self loadViewForIndex:leftIndex withOffsetX:offsetX reusingView:v];
-        }
-        
-        if (x < minX) {
-            int rightIndex = [self rightOfIndex:currentItemIndex step:numberOfItemsOnEachSide-1];
-            CGFloat offsetX = x + (itemWidth * ((numberOfItemsOnEachSide * 2) - 1));
+            [self loadViewForIndex:newIndex withOffsetX:offsetX reusingView:v];
             
-            [self loadViewForIndex:rightIndex withOffsetX:offsetX reusingView:v];
+        } else if (x < minX) {
+            CGFloat offsetX = x + viewportStride;
+            int leg = (numberOfItemsOnEachSide-1);
+            int newIndex = [self rightOfIndex:currentItemIndex step:leg];
+            
+            [self loadViewForIndex:newIndex withOffsetX:offsetX reusingView:v];
         }
     }
-    
-    isAnimating = NO;
-    
 
 }
 
@@ -322,10 +363,7 @@
         return;
     }
     
-    UITouch* t = [touches anyObject];
-    CGPoint p = [t locationInView:self];
-    
-    [self beginDraggingAtPoint:p];
+    [self beginDragging];
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
@@ -334,18 +372,17 @@
         return;
     }
     
-    UITouch* t = [touches anyObject];
-    CGPoint p1 = [t locationInView:self];
-    
     if (!isDragging) {
         NSLog(@"drag state compromised by animation, compensating");
-        [self beginDraggingAtPoint:p1]; // race condition, it's possible that the touch began while still animating
+        [self beginDragging]; // race condition, it's possible that the touch began while still animating
     }
     
+    UITouch* t = [touches anyObject];
+    CGPoint p1 = [t locationInView:self];
     CGPoint p2 = [t previousLocationInView:self];
     CGFloat d = p2.x - p1.x;
     
-    // accumulate movement into dragDistance
+    // accumulate horizontal movement into dragDistance
     dragDistance = dragDistance + d;
     
     [self moveItems:d];
@@ -357,10 +394,11 @@
         return;
     }
     
-    UITouch* t = [touches anyObject];
-    CGPoint p = [t locationInView:self];
-    
-    [self endDraggingAtPoint:p];
+    if (!isDragging) {
+        return;
+    }
+
+    [self endDragging];
 }
 
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
