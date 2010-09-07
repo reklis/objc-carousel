@@ -100,7 +100,6 @@
 			children = (
 				3BED9A28120C439B00521CCB /* CarouselTestViewController.h */,
 				3BED9A29120C439B00521CCB /* CarouselTestViewController.m */,
-				3BED9A2B120C439B00521CCB /* CarouselTestViewController.xib */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -123,6 +122,7 @@
 				3BED9A1B120C439B00521CCB /* CarouselTest-Info.plist */,
 				3BED9A1D120C439B00521CCB /* InfoPlist.strings */,
 				3BED9A25120C439B00521CCB /* MainWindow.xib */,
+				3BED9A2B120C439B00521CCB /* CarouselTestViewController.xib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -242,7 +242,6 @@
 				3BED9A2C120C439B00521CCB /* en */,
 			);
 			name = CarouselTestViewController.xib;
-			path = ..;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -260,7 +259,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				SDKROOT = iphoneos4.0;
+				SDKROOT = iphonesimulator4.0;
 			};
 			name = Debug;
 		};
@@ -275,7 +274,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
 				PREBINDING = NO;
-				SDKROOT = iphoneos4.0;
+				SDKROOT = iphonesimulator4.0;
 			};
 			name = Release;
 		};

@@ -249,32 +249,35 @@
     
     isDragging = NO;
     
+    CGFloat quotient = d / itemWidth;
     CGFloat integral = CGFLOAT_MAX;
-    CGFloat fractional = modff(d / itemWidth, &integral);
+    CGFloat fractional = modff(quotient, &integral);
+    CGFloat roundedQuotient = roundf(quotient);
+    CGFloat stepping = ceilf((quotient > 0) ? quotient : -quotient);
         
-    if (integral != 0.0) {
-        
+    if (roundedQuotient != 0.0) {
+        NSLog(@"quotient: %1.2f  integral: %1.2f  fractional %1.2f  roundedQuotient: %1.2f  stepping: %1.2f", quotient, integral, fractional, roundedQuotient, stepping);
         // update the current item index appropriately
-        if (integral < 0) {
-            currentItemIndex = [self leftOfIndex:currentItemIndex step:-integral];
+        if (roundedQuotient < 0) {
+            currentItemIndex = [self leftOfIndex:currentItemIndex step:stepping];
         } else {
-            currentItemIndex = [self rightOfIndex:currentItemIndex step:integral];
+            currentItemIndex = [self rightOfIndex:currentItemIndex step:stepping];
         }
 
         if (fractional != 0.0) {
-            NSLog(@"animateSnapToCenter");
             // animate to appropriate center, notify when animation is complete
-            CGFloat offsetX = -fractional * itemWidth;
+            CGFloat offsetX = (fractional > 0) ? ((1.0 - fractional) * itemWidth) : ((fractional + 1.0) * -itemWidth);
+            NSLog(@"animateSnapToCenter %1.2f %1.2f %1.2f", integral, fractional, offsetX);
             [self animateSnapToCenter:offsetX];
         } else {
-            NSLog(@"no animation");
+            //NSLog(@"no animation");
             // nothing to animate, but we should still notify
             [self notifyDelegateCurrentItemChanged];
         }
 
     } else {
         // animate back, notify when animation is complete
-        NSLog(@"animateSnapBack");
+        //NSLog(@"animateSnapBack %1.2f %1.2f", integral, fractional);
         [self animateSnapBack:d];
     }
     

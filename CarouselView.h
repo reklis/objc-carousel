@@ -23,7 +23,6 @@
     NSInteger numberOfItemsOnEachSide;
     
     NSInteger currentItemIndex;
-    UIView* _currentItem;
     
     BOOL isInitialized;
     
@@ -34,7 +33,7 @@
 }
 
 @property (readwrite,nonatomic,assign) IBOutlet id<CarouselViewDelegate> delegate; // weak reference
-
+    
 @property (readonly,nonatomic) UIView* currentItem;
 @property (readonly,nonatomic) NSInteger currentItemIndex;
 
