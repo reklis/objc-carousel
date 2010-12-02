@@ -1,11 +1,3 @@
-//
-//  CarouselView.h
-//  CarouselTest
-//
-//  Created by Steven Fusco on 8/6/10.
-//  Copyright (c) 2010 __MyCompanyName__. All rights reserved.
-//
-
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
